@@ -21,6 +21,9 @@ const {
 module.exports = class MetamaskInpageProvider extends SafeEventEmitter {
 
   /**
+   * @emits MetamaskInpageProvider#connect
+   * @emits MetamaskInpageProvider#message
+   *
    * @param {Object} connectionStream - A Node.js stream
    * @param {Object} options - An options bag
    * @param {number} [options.maxEventListeners=100] - The maximum number of event listeners
@@ -66,7 +69,7 @@ module.exports = class MetamaskInpageProvider extends SafeEventEmitter {
       },
       isConnected: null,
       accounts: null,
-      isUnlocked: null,
+      isUnlocked: false,
     }
 
     this._metamask = this._getExperimentalApi()
@@ -338,6 +341,7 @@ module.exports = class MetamaskInpageProvider extends SafeEventEmitter {
 
   /**
    * Called when connection is lost to critical streams.
+   * @emits MetamaskInpageProvider#disconnect
    */
   _handleDisconnect (streamName, err) {
 
@@ -357,6 +361,7 @@ module.exports = class MetamaskInpageProvider extends SafeEventEmitter {
 
   /**
    * Called when accounts may have changed.
+   * @emits MetamaskInpageProvider#accountsChanged
    */
   _handleAccountsChanged (accounts, isEthAccounts = false, isInternal = false) {
 
@@ -410,6 +415,8 @@ module.exports = class MetamaskInpageProvider extends SafeEventEmitter {
    * events and sets relevant public state.
    * Does nothing if neither the chainId nor the networkVersion are different
    * from existing values.
+   *
+   * @emits MetamaskInpageProvider#chainChanged
    *
    * @param {Object} networkInfo - An object with network info.
    * @param {string} networkInfo.chainId - The latest chain ID.
@@ -466,12 +473,9 @@ module.exports = class MetamaskInpageProvider extends SafeEventEmitter {
             true, // indicating that eth_accounts _should_ update accounts
           )
         } catch (_) { /* no-op */ }
-
-        this.emit('unlock')
       } else {
         // accounts are never exposed when the extension is locked
         this._handleAccountsChanged([])
-        this.emit('lock')
       }
     }
   }
@@ -502,11 +506,6 @@ module.exports = class MetamaskInpageProvider extends SafeEventEmitter {
          * @returns {Promise<boolean>} - Promise resolving to true if MetaMask is currently unlocked
          */
         isUnlocked: async () => {
-          if (this._state.isUnlocked === null) {
-            await new Promise(
-              (resolve) => this.once('unlock', () => resolve()),
-            )
-          }
           return this._state.isUnlocked
         },
 
